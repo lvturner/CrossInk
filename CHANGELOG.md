@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Added
+
+- Dual-boot: a "Switch to MicroSlate" action under Settings → System that reboots into the other OTA slot. It writes otadata directly via `ota_boot::switchTo` (bypassing `esp_image_verify`, which rejects with bogus eFuse-rev errors on these bootloaders). Pair with a MicroSlate build that has the matching switch-back entry.
+
+### Fixed
+
+- Mark the running OTA app valid at the end of `setup()` (`esp_ota_mark_app_valid_cancel_rollback`) so a firmware installed via the OEM SD-card recovery survives reboots/deep-sleep instead of rolling back to the previous slot.
+
 ## [v1.5.0] - 2026-08-08
 
 ### Added

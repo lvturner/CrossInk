@@ -40,6 +40,7 @@ enum class SettingAction {
   ClearCache,
   CheckForUpdates,
   SdFirmwareUpdate,
+  SwitchApp,
   Language,
   DownloadFonts,
   ClockSync,

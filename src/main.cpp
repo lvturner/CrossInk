@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_ota_ops.h>
 #include <BoardConfig.h>
 #include <CrossInkHalFrontlight.h>
 #include <FontCacheManager.h>
@@ -1090,6 +1091,8 @@ void setup() {
   // Ensure we're not still holding the power button before leaving setup
   waitForPowerRelease();
   allowSleepAt = millis() + 2000;
+
+  esp_ota_mark_app_valid_cancel_rollback();
 }
 
 void loop() {

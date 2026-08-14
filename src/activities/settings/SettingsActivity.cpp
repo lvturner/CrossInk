@@ -4,6 +4,7 @@
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
 #include <Logging.h>
+#include <esp_ota_ops.h>
 
 #include <algorithm>
 #include <cctype>
@@ -26,6 +27,7 @@
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
 #include "SilentRestart.h"
+#include "network/OtaBootSwitch.h"
 #include "StatusBarSettingsActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/GlobalReadingStats.h"
@@ -46,6 +48,36 @@ namespace fui = freeink::ui;
 namespace {
 constexpr fui::ActionId ACTION_ROW = 1;
 constexpr fui::ActionId ACTION_TAB = 2;
+
+// Switch the bootloader's selected OTA app partition to the "other" app slot by
+// writing otadata directly (bypasses esp_image_verify, which rejects with bogus
+// eFuse-rev errors on these bootloaders), then reboot. The target app must
+// self-mark valid on its next boot (it does) or the bootloader rolls back here.
+void switchToOtherOtaApp() {
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  const esp_partition_t* other = nullptr;
+  esp_partition_iterator_t it =
+      esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_MIN, nullptr);
+  while (it != nullptr) {
+    const esp_partition_t* p = esp_partition_get(it);
+    if (p != running) {
+      other = p;
+      break;
+    }
+    it = esp_partition_next(it);
+  }
+  esp_partition_iterator_release(it);
+  if (other == nullptr) {
+    LOG_ERR("SET", "No other OTA app partition found; cannot switch");
+    return;
+  }
+  LOG_INF("SET", "Switching OTA boot partition to %s", other->label);
+  if (!ota_boot::switchTo(other)) {
+    LOG_ERR("SET", "ota_boot::switchTo to %s failed", other->label);
+    return;
+  }
+  ESP.restart();
+}
 }  // namespace
 
 const StrId SettingsActivity::categoryNames[categoryCount] = {StrId::STR_CAT_DISPLAY, StrId::STR_CAT_READER,
@@ -951,6 +983,14 @@ void SettingsActivity::toggleCurrentSetting() {
         break;
       case SettingAction::SdFirmwareUpdate:
         startActivityForResult(std::make_unique<SdFirmwareUpdateActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::SwitchApp:
+        startActivityForResult(
+            std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_SWITCH_APP), tr(STR_SWITCH_APP_CONFIRM)),
+            [this](const ActivityResult& result) {
+              if (!result.isCancelled) switchToOtherOtaApp();
+              requestUpdate();
+            });
         break;
       case SettingAction::DownloadFonts:
         silentRestartToManageFonts();
