@@ -40,4 +40,9 @@ uint32_t computeSeqCrc(uint32_t seq);
 // Returns true on success.
 bool switchTo(const esp_partition_t* dest);
 
+// Find the OTA app partition that isn't the running one and switch the
+// bootloader to it (writes otadata directly). Returns true on success.
+// The caller restarts; the target app must self-mark valid on its next boot.
+bool switchToOtherApp();
+
 }  // namespace ota_boot

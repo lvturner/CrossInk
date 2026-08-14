@@ -54,26 +54,8 @@ constexpr fui::ActionId ACTION_TAB = 2;
 // eFuse-rev errors on these bootloaders), then reboot. The target app must
 // self-mark valid on its next boot (it does) or the bootloader rolls back here.
 void switchToOtherOtaApp() {
-  const esp_partition_t* running = esp_ota_get_running_partition();
-  const esp_partition_t* other = nullptr;
-  esp_partition_iterator_t it =
-      esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_MIN, nullptr);
-  while (it != nullptr) {
-    const esp_partition_t* p = esp_partition_get(it);
-    if (p != running) {
-      other = p;
-      break;
-    }
-    it = esp_partition_next(it);
-  }
-  esp_partition_iterator_release(it);
-  if (other == nullptr) {
-    LOG_ERR("SET", "No other OTA app partition found; cannot switch");
-    return;
-  }
-  LOG_INF("SET", "Switching OTA boot partition to %s", other->label);
-  if (!ota_boot::switchTo(other)) {
-    LOG_ERR("SET", "ota_boot::switchTo to %s failed", other->label);
+  if (!ota_boot::switchToOtherApp()) {
+    LOG_ERR("SET", "ota_boot::switchToOtherApp failed");
     return;
   }
   ESP.restart();

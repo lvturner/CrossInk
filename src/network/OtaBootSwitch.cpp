@@ -1,6 +1,7 @@
 #include "OtaBootSwitch.h"
 
 #include <Logging.h>
+#include <esp_ota_ops.h>
 #include <esp_rom_crc.h>
 #include <spi_flash_mmap.h>
 #include <string.h>
@@ -81,6 +82,27 @@ bool switchTo(const esp_partition_t* dest) {
   LOG_INF("BOOT", "otadata: wrote slot=%d seq=%u crc=0x%08x -> %s", targetSlot, static_cast<unsigned>(newSeq),
           static_cast<unsigned>(next.crc), dest->label);
   return true;
+}
+
+bool switchToOtherApp() {
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  const esp_partition_t* other = nullptr;
+  esp_partition_iterator_t it =
+      esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_MIN, nullptr);
+  while (it != nullptr) {
+    const esp_partition_t* p = esp_partition_get(it);
+    if (p != running) {
+      other = p;
+      break;
+    }
+    it = esp_partition_next(it);
+  }
+  esp_partition_iterator_release(it);
+  if (other == nullptr) {
+    LOG_ERR("BOOT", "No other OTA app partition found; cannot switch");
+    return false;
+  }
+  return switchTo(other);
 }
 
 }  // namespace ota_boot

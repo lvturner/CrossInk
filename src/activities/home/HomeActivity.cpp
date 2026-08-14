@@ -32,11 +32,13 @@
 #include "RecentBookProgress.h"
 #include "RecentBooksStore.h"
 #include "SavedItemsHomeActivity.h"
+#include "activities/util/ConfirmationActivity.h"
 #include "components/UITheme.h"
 #include "components/themes/dashboard/DashboardTheme.h"
 #include "components/themes/lyra/LyraCarouselTheme.h"
 #include "components/themes/minimal/MinimalTheme.h"
 #include "fontIds.h"
+#include "network/OtaBootSwitch.h"
 
 namespace {
 constexpr uint32_t CAROUSEL_CACHE_MAGIC = 0x43434152;  // "CCAR"
@@ -59,6 +61,7 @@ enum class HomeMenuAction {
   Bookmarks,
   FileTransfer,
   Settings,
+  SwitchApp,
 };
 
 struct HomeMenuEntry {
@@ -276,6 +279,7 @@ void appendHomeMenuItems(HomeMenuEntries& items, bool hasOpdsServers, bool hasRe
 
   items.push({tr(STR_FILE_TRANSFER), Transfer, HomeMenuAction::FileTransfer});
   items.push({tr(STR_SETTINGS_TITLE), Settings, HomeMenuAction::Settings});
+  items.push({tr(STR_SWITCH_APP), Book, HomeMenuAction::SwitchApp});
 }
 
 HomeMenuEntries buildHomeMenuItems(bool hasOpdsServers, bool hasReadingStats, bool hasBookmarks, bool hasClippings) {
@@ -1451,6 +1455,9 @@ void HomeActivity::loop() {
           case HomeMenuAction::ContinueReading:
           case HomeMenuAction::Settings:
             break;
+          case HomeMenuAction::SwitchApp:
+            onSwitchAppOpen();
+            break;
         }
       };
 
@@ -1660,6 +1667,9 @@ void HomeActivity::loop() {
         break;
       case HomeMenuAction::Settings:
         onSettingsOpen();
+        break;
+      case HomeMenuAction::SwitchApp:
+        onSwitchAppOpen();
         break;
     }
   };
@@ -2114,6 +2124,17 @@ void HomeActivity::onContinueReading() {
 void HomeActivity::onRecentsOpen() { activityManager.goToRecentBooks(); }
 
 void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
+
+void HomeActivity::onSwitchAppOpen() {
+  startActivityForResult(
+      std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_SWITCH_APP), tr(STR_SWITCH_APP_CONFIRM)),
+      [this](const ActivityResult& result) {
+        if (!result.isCancelled && ota_boot::switchToOtherApp()) {
+          ESP.restart();
+        }
+        requestUpdate();
+      });
+}
 
 void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
